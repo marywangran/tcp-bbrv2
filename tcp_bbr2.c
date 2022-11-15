@@ -1163,6 +1163,11 @@ static void bbr_update_min_rtt(struct sock *sk, const struct rate_sample *rs)
 	if (rs->rtt_us >= 0 &&
 	    (rs->rtt_us <= bbr->probe_rtt_min_us ||
 	     (probe_rtt_expired && !rs->is_ack_delayed))) {
+                if (!probe_rtt_expired &&
+                    (bbr->mode == BBR_PROBE_BW &&
+                     bbr->cycle_idx == BBR_BW_PROBE_CRUISE) &&
+                    3*bbr->probe_rtt_min_us >= 4*rs->rtt_us)
+                        bbr->inflight_lo = bbr->bw_lo = 0;
 		bbr->probe_rtt_min_us = rs->rtt_us;
 		bbr->probe_rtt_min_stamp = tcp_jiffies32;
 	}
