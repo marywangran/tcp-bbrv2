@@ -132,7 +132,7 @@ struct bbr {
 	/* For tracking ACK aggregation: */
 	u64	ack_epoch_mstamp;	/* start of ACK sampling epoch */
 	u16	extra_acked[2];		/* max excess data ACKed in epoch */
-	u8	cruise_inc;
+	u16	cruise_inc;
 	u32	ack_epoch_acked:20,	/* packets (S)ACKed in sampling epoch */
 		extra_acked_win_rtts:5,	/* age of extra_acked, in round trips */
 		extra_acked_win_idx:1,	/* current index in extra_acked array */
@@ -1739,7 +1739,8 @@ static void bbr2_update_congestion_signals(
 
 	if (!bbr->loss_in_round) {
 		bbr->no_loss_in_prev_round = 1;
-		bbr->cruise_inc = 1;
+		if (!bbr->cruise_inc)
+			bbr->cruise_inc = 1;
 	}
 	/* Update windowed "latest" (single-round-trip) filters. */
 	bbr->loss_in_round = 0;
@@ -2058,7 +2059,13 @@ static void bbr2_update_cycle_phase(struct sock *sk,
 			if (bbr->bw_lo != ~0U)
 				bbr->bw_lo = min_t(u32, bbr->bw_lo + bbr->cruise_inc,
 						bbr->round_start_bw);
-			bbr->cruise_inc *= 2;
+			if (bbr->inflight_lo != ~0U || bbr->bw_lo != ~0U) {
+				bbr->cruise_inc *= 2;
+				bbr->cruise_inc &= 0xff; // 0x1ff ??
+				if (bbr->cruise_inc == 0)
+					bbr->cruise_inc ++;
+			}
+			
 		}
 		break;
 
